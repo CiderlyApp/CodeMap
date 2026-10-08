@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+
+# CodeMap Cache
+backend/app/cache.json
+cache.json
+
+# Node & Frontend
+node_modules/
+.npm/
+
+# Logs & Environment
+*.log
+.env
+.DS_Store
+
+# IDE & Editors
+.idea/
+.vscode/
+*.swp
+*.swo

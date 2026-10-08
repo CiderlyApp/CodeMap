@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeMap — Source Code Dependency Intelligence</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="codemap-root">
+    <input type="file" id="fallback-folder-input" webkitdirectory directory multiple style="display: none;">
+
+    <!-- Верхний командный бар -->
+    <header class="app-header">
+        <div class="header-left">
+            <div class="brand">
+                <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="brand-name">CodeMap</span>
+            </div>
+
+            <div class="project-manager-widget">
+                <button class="btn btn-icon-add" id="btn-add-project" title="Добавить проект/папку с диска (только чтение)">
+                    <span class="plus-icon">+</span>
+                </button>
+
+                <div class="project-dropdown-container">
+                    <button class="project-select-trigger" id="project-dropdown-trigger">
+                        <span class="folder-ico">📁</span>
+                        <span class="project-active-name" id="current-project-label">Демо-проект</span>
+                        <span class="arrow-indicator">▾</span>
+                    </button>
+                    <div class="project-dropdown-menu" id="project-dropdown-menu" style="display: none;">
+                        <div class="dropdown-header-title">Подключенные проекты:</div>
+                        <div class="project-items-list" id="project-items-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="header-center">
+            <div class="search-command-bar">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="global-search-input" placeholder="Поиск файла..." autocomplete="off" spellcheck="false">
+                <button class="clear-search-btn" id="clear-search-btn" style="display: none;">✕</button>
+                <div class="search-results-dropdown" id="search-results-dropdown" style="display: none;"></div>
+            </div>
+
+            <!-- Фильтр сирот -->
+            <div class="orphan-filter-wrapper">
+                <select id="orphan-filter-select" class="dropdown-select" title="Фильтрация файлов-сирот (без зависимостей)">
+                    <option value="all">Все файлы (вкл. сироты)</option>
+                    <option value="no-orphans">Скрыть файлы-сироты</option>
+                    <option value="only-orphans">Только файлы-сироты</option>
+                </select>
+            </div>
+
+            <button class="btn btn-secondary" id="btn-project-overview" title="Показать весь проект со связями">
+                <span>🗺️</span> Весь проект
+            </button>
+        </div>
+
+        <div class="header-right">
+            <button class="icon-action-btn" id="btn-fit-screen" title="Вписать граф в экран">⛶</button>
+            <button class="icon-action-btn" id="btn-open-settings" title="Настройки порогов LOC">⚙️</button>
+        </div>
+    </header>
+
+    <main class="workspace-layout">
+        <!-- 1. Левая панель: Дерево проекта + Кандидаты рефакторинга -->
+        <aside class="sidebar-panel left-sidebar" id="left-sidebar">
+            <!-- Клик по заголовку отображает весь проект -->
+            <div class="panel-section-header clickable-header" id="btn-explorer-title" title="Нажмите, чтобы показать весь проект со связями">
+                <span class="section-title">PROJECT EXPLORER 🌐</span>
+                <span class="meta-tag" id="project-source-tag">показать всё</span>
+            </div>
+
+            <div class="project-tree-container" id="project-tree-view"></div>
+
+            <div class="refactoring-candidates-widget">
+                <div class="panel-section-header warning-header">
+                    <span class="section-title">
+                        <span class="warning-icon">⚠️</span> CANDIDATES FOR REFACTORING
+                    </span>
+                    <span class="counter-badge" id="candidates-count-badge">0</span>
+                </div>
+                <div class="candidates-list" id="candidates-list"></div>
+            </div>
+
+            <div class="sidebar-status-footer">
+                <span class="status-indicator-dot online"></span>
+                <span id="project-stats-label">Готов к анализу</span>
+            </div>
+        </aside>
+
+        <!-- 2. Центральный холст графа -->
+        <section class="canvas-viewport" id="canvas-viewport">
+            <div class="floating-context-pill" id="focus-context-pill" style="display: none;">
+                <span class="pill-icon">📄</span>
+                <span class="pill-text" id="focus-context-text">Фокус</span>
+                <button class="pill-close" id="btn-exit-focus-pill" title="Показать весь проект">✕ Показать всё</button>
+            </div>
+
+            <div class="graph-world" id="graph-world">
+                <svg class="graph-edges-layer" id="graph-edges-svg"></svg>
+                <div class="graph-nodes-layer" id="graph-nodes-container"></div>
+            </div>
+
+            <div class="graph-legend-overlay">
+                <div class="legend-entry"><span class="edge-line-sample import-type"></span> <code>import</code></div>
+                <div class="legend-entry"><span class="edge-line-sample from-import-type"></span> <code>from import</code></div>
+                <div class="legend-entry"><span class="edge-line-sample export-type"></span> <code>export</code></div>
+                <div class="legend-entry"><span class="edge-line-sample test-type"></span> <code>test / usage</code></div>
+                <div class="legend-entry"><span class="orphan-dot-sample"></span> <code>файл-сирота</code></div>
+            </div>
+
+            <div class="canvas-bottom-dock">
+                <div class="zoom-controls-stack">
+                    <button class="zoom-btn" id="btn-zoom-in" title="Приблизить">+</button>
+                    <button class="zoom-btn" id="btn-zoom-out" title="Отдалить">−</button>
+                    <button class="zoom-btn" id="btn-center-selection" title="Центрировать">⦿</button>
+                    <button class="zoom-btn" id="btn-fit-graph" title="Вписать граф">⛶</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Правая панель: Инспектор файла (Шторка с просмотром кода) -->
+        <aside class="sidebar-panel right-sidebar drawer-curtain" id="right-sidebar">
+            <button class="drawer-toggle-handle" id="btn-toggle-drawer" title="Свернуть / развернуть панель инспектора">
+                <span class="drawer-arrow-icon" id="drawer-arrow-icon">▶</span>
+            </button>
+
+            <div class="drawer-inner-content">
+                <div class="inspector-header">
+                    <div class="inspector-title-row">
+                        <span class="file-icon-large" id="inspector-file-icon">📄</span>
+                        <div class="file-title-wrap">
+                            <h2 class="inspector-file-name" id="inspector-file-name">Выберите файл</h2>
+                            <div class="inspector-file-sub" id="inspector-file-path">Кликните на карточку или элемент дерева</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="inspector-tags-row" id="inspector-tags"></div>
+
+ <!-- Блок экспорта в ИИ с ручным управлением контекстом -->
+                <div class="ai-copy-action-box">
+                    <div class="copy-buttons-row">
+                        <button class="btn btn-copy-file-only" id="btn-copy-file-only" title="Скопировать только текущий файл">
+                            <span>📄</span> Только файл
+                        </button>
+                        <button class="btn btn-copy-ai-main" id="btn-copy-bundle" title="Скопировать файл вместе с активными зависимостями">
+                            <span>📦</span> Бандл (<span id="active-deps-count">0</span>)
+                        </button>
+                        <button class="btn btn-secondary btn-pin-toggle" id="btn-toggle-custom-context" title="Добавить/убрать текущий файл из бандла">
+                            📌
+                        </button>
+                    </div>
+                    <div class="copy-subhint">Используйте 📌 в дереве или инспекторе, чтобы добавить произвольные файлы</div>
+                </div>
+
+                <!-- Табы: Зависимости / Просмотр кода -->
+                <div class="inspector-tabs-bar">
+                    <button class="tab-btn active" id="tab-btn-deps">Зависимости</button>
+                    <button class="tab-btn" id="tab-btn-code">Просмотр кода</button>
+                </div>
+
+                <div class="inspector-scroll-area" id="inspector-deps-view">
+                    <div class="refactoring-alert-banner" id="inspector-refactor-banner" style="display: none;">
+                        <div class="alert-icon">⚠️</div>
+                        <div class="alert-content">
+                            <div class="alert-title" id="inspector-refactor-title">Candidate for refactoring</div>
+                            <div class="alert-desc" id="inspector-refactor-desc"></div>
+                        </div>
+                    </div>
+
+                    <div class="inspector-section">
+                        <div class="section-label">PATH</div>
+                        <div class="code-box-path" id="inspector-full-path">-</div>
+                    </div>
+
+                    <!-- Секция ручного добавления файлов в контекст -->
+                    <div class="inspector-section" id="inspector-custom-context-section">
+                        <div class="section-label-row">
+                            <span class="section-label">ДОПОЛНИТЕЛЬНО В КОНТЕКСТЕ</span>
+                            <div class="custom-actions-wrap">
+                                <span class="count-tag" id="inspector-custom-context-count">0</span>
+                                <button class="btn-clear-text" id="btn-clear-custom-context" title="Очистить список">Очистить</button>
+                            </div>
+                        </div>
+                        <div class="dep-items-list" id="inspector-custom-context-list"></div>
+                    </div>
+
+                    <div class="inspector-section">
+                        <div class="section-label-row">
+                            <span class="section-label">ИМПОРТИРУЕТ (Входящие зависимости)</span>
+                            <span class="count-tag" id="inspector-imports-count">0</span>
+                        </div>
+                        <div class="dep-items-list" id="inspector-imports-list"></div>
+                    </div>
+
+                    <div class="inspector-section">
+                        <div class="section-label-row">
+                            <span class="section-label">ИСПОЛЬЗУЕТСЯ В (Обратные зависимости)</span>
+                            <span class="count-tag" id="inspector-imported-by-count">0</span>
+                        </div>
+                        <div class="dep-items-list" id="inspector-imported-by-list"></div>
+                    </div>
+                </div>
+                    <div class="inspector-section stats-summary-box">
+                        <div class="section-label">СТАТИСТИКА</div>
+                        <div class="stat-metric-row">
+                            <span class="dot-indicator blue"></span>
+                            <span class="metric-name">Прямых импортов</span>
+                            <span class="metric-val" id="inspector-stat-direct">0</span>
+                        </div>
+                        <div class="stat-metric-row">
+                            <span class="dot-indicator green"></span>
+                            <span class="metric-name">Использующих файлов</span>
+                            <span class="metric-val" id="inspector-stat-reverse">0</span>
+                        </div>
+                        <div class="stat-metric-row">
+                            <span class="dot-indicator amber"></span>
+                            <span class="metric-name">Строк кода (LOC)</span>
+                            <span class="metric-val" id="inspector-stat-lines">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Вкладка просмотра кода -->
+                <div class="inspector-code-view" id="inspector-code-view" style="display: none;">
+                    <div class="code-viewer-header">
+                        <span id="code-viewer-filename">code</span>
+                        <button class="btn btn-secondary btn-sm" id="btn-copy-raw-code">Скопировать весь код</button>
+                    </div>
+                    <pre class="code-viewer-body"><code id="code-viewer-content">// Код файла не загружен</code></pre>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+<!-- Диалог настроек анализатора и игнорируемых ресурсов -->
+    <div class="modal-dialog-overlay" id="settings-modal" style="display: none;">
+        <div class="modal-dialog-card modal-dialog-card-wide">
+            <div class="modal-header">
+                <h3>Настройки анализатора</h3>
+                <button class="modal-close-btn" id="btn-close-settings-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Блок 1: Пороги рефакторинга -->
+                <div class="setting-group-box">
+                    <div class="group-title">Пороги рефакторинга (LOC)</div>
+                    <div class="form-row">
+                        <label for="thresh-large">Большой файл (строк):</label>
+                        <input type="number" id="thresh-large" value="500" min="50" step="50">
+                    </div>
+                    <div class="form-row">
+                        <label for="thresh-critical">Критический размер (строк):</label>
+                        <input type="number" id="thresh-critical" value="1000" min="100" step="50">
+                    </div>
+                </div>
+
+                <!-- Блок 2: Новый пункт — Игнорируемые каталоги и маски файлов -->
+                <div class="setting-group-box">
+                    <div class="group-title">Игнорируемые файлы и каталоги</div>
+                    <div class="form-col">
+                        <label for="settings-exclude-dirs">Игнорируемые каталоги (через запятую):</label>
+                        <textarea id="settings-exclude-dirs" class="form-textarea" rows="2" placeholder="node_modules, .git, dist, build, venv, .venv, coverage"></textarea>
+                        <span class="field-hint">Подпапки с данными именами будут полностью пропущены при сканировании</span>
+                    </div>
+
+                    <div class="form-col" style="margin-top: 10px;">
+                        <label for="settings-exclude-files">Маски игнорируемых файлов (через запятую):</label>
+                        <input type="text" id="settings-exclude-files" class="form-input-text" placeholder="*.g.dart, freezed.dart, *.min.js, *.lock, *.spec.ts">
+                        <span class="field-hint">Поддерживаются подстроки и маски с подстановочными знаками: <code>*</code> и <code>?</code></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btn-cancel-settings">Отмена</button>
+                <button class="btn btn-primary" id="btn-apply-settings">Применить</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

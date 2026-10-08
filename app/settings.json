@@ -1,0 +1,8 @@
+{
+  "sources": [
+    "/code"
+  ],
+  "exclude_dirs": "node_modules, .git, .next, dist, build, venv, .venv, env, __pycache__, .dart_tool, .idea, .vscode, coverage, .gradle",
+  "extensions": ".js, .jsx, .ts, .tsx, .py, .dart",
+  "exclude_files": "freezed.dart, .g.dart, *.min.js, *.lock"
+}

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  dependency-mapper:
+    build: .
+    container_name: code-dependency-mapper
+    ports:
+      - "8000:8000"
+    volumes:
+      # Монтирование корневой файловой системы хоста для интерактивного выбора любых папок
+      - /:/host-root:ro
+      # Для сохранения настроек и кэша на хосте
+      - ./data:/app/app/data
+    environment:
+      - CODE_DIR=/host-root
+    restart: unless-stopped
