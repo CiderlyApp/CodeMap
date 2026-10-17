@@ -1,6 +1,6 @@
 /**
  * @fileoverview Главный контроллер и точка входа приложения CodeMap.
- * Выполняет инициализацию подсистем, синхронизацию с IndexedDB и координацию событий.
+ * Координирует переключение 4 режимов визуализации, фильтры связей и Bundle.
  *
  * @module app
  */
@@ -39,6 +39,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await restoreFromLocalCache();
         initUI();
+        initViewModeSwitcher();
+        initEdgeTypeFilters();
+        initLayeredControls();
         updateCandidates();
         renderGraph(selectFile);
 
@@ -47,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         tryLoadServerGraph().catch((err) => {
-            console.info('Серверный граф недоступен, работаем с локальным кэшем:', err);
+            console.info('Серверный бэкенд недоступен, работаем с локальным кэшем:', err);
         });
     } catch (err) {
         console.error('Ошибка инициализации CodeMap:', err);
@@ -55,11 +58,63 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 /**
- * Загружает граф с бэкенда, если он запущен.
- *
- * @async
- * @returns {Promise<void>}
+ * Инициализирует переключатель 4 режимов визуализации.
  */
+function initViewModeSwitcher() {
+    const modeButtons = document.querySelectorAll('.view-mode-btn');
+    modeButtons.forEach(btn => {
+        btn.onclick = () => {
+            const targetMode = btn.dataset.mode;
+            if (state.currentViewMode === targetMode) return;
+
+            state.currentViewMode = targetMode;
+            modeButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Переключение режимов сохраняет выбранный файл, Bundle и поисковый запрос
+            renderGraph(selectFile);
+            updateContextPill();
+        };
+    });
+}
+
+/**
+ * Инициализирует фильтрацию типов связей (import, from_import, export, test, etc.).
+ */
+function initEdgeTypeFilters() {
+    const checkboxes = document.querySelectorAll('.edge-filter-checkbox');
+    checkboxes.forEach(cb => {
+        cb.onchange = (e) => {
+            const edgeType = e.target.dataset.edgeType;
+            if (e.target.checked) {
+                state.activeEdgeTypes.add(edgeType);
+            } else {
+                state.activeEdgeTypes.delete(edgeType);
+            }
+            renderGraph(selectFile);
+        };
+    });
+}
+
+/**
+ * Инициализирует элементы управления глубиной для слоевого графа.
+ */
+function initLayeredControls() {
+    const depthSlider = document.getElementById('layered-depth-slider');
+    const depthValue = document.getElementById('layered-depth-value');
+
+    if (depthSlider && depthValue) {
+        depthSlider.oninput = (e) => {
+            const d = parseInt(e.target.value, 10);
+            state.layeredSettings.depth = d;
+            depthValue.innerText = d.toString();
+            if (state.currentViewMode === 'layered') {
+                renderGraph(selectFile);
+            }
+        };
+    }
+}
+
 async function tryLoadServerGraph() {
     const resp = await fetch('/api/graph');
     if (!resp.ok) return;
@@ -92,12 +147,6 @@ async function tryLoadServerGraph() {
     }
 }
 
-/**
- * Восстанавливает сохраненные данные проектов и настройки из IndexedDB.
- *
- * @async
- * @returns {Promise<void>}
- */
 async function restoreFromLocalCache() {
     try {
         const cachedProjects = await loadAllCachedProjects();
@@ -119,23 +168,14 @@ async function restoreFromLocalCache() {
 
         const cachedSettings = await loadSettingsFromCache();
         if (cachedSettings) {
-            if (cachedSettings.thresholds) {
-                state.thresholds = cachedSettings.thresholds;
-            }
-            if (cachedSettings.ignoreSettings) {
-                state.ignoreSettings = cachedSettings.ignoreSettings;
-            }
+            if (cachedSettings.thresholds) state.thresholds = cachedSettings.thresholds;
+            if (cachedSettings.ignoreSettings) state.ignoreSettings = cachedSettings.ignoreSettings;
         }
     } catch (e) {
         console.warn('Ошибка загрузки локального кэша:', e);
     }
 }
 
-/**
- * Инициализирует элементы интерфейса и обработчики сквозных событий.
- *
- * @returns {void}
- */
 function initUI() {
     initTree();
     initDrawer();
@@ -147,7 +187,6 @@ function initUI() {
     initOrphanFilter();
     initCodeViewerTabs();
 
-    // Сброс фокуса и показ всего проекта по клику на заголовок дерева
     const explorerTitle = document.getElementById('btn-explorer-title');
     if (explorerTitle) {
         explorerTitle.onclick = () => {

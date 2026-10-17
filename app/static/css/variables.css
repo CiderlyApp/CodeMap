@@ -1,0 +1,90 @@
+:root {
+    --bg-app: #0b0f17;
+    --bg-header: #0f1623;
+    --bg-sidebar: #0e1420;
+    --bg-panel-subtle: #141c2c;
+    --bg-card: #182234;
+    --bg-card-hover: #1f2b42;
+    --bg-card-focused: #1a2c4e;
+    
+    --border-color: #222f46;
+    --border-subtle: #1a2538;
+    --border-hover: #354769;
+
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --text-bright: #ffffff;
+
+    --edge-import: #38bdf8;
+    --edge-from-import: #4ade80;
+    --edge-export: #fbbf24;
+    --edge-test: #94a3b8;
+    --edge-dynamic: #a78bfa;
+
+    --warn-large: #f59e0b;
+    --warn-critical: #ef4444;
+
+    --accent-focus: #3b82f6;
+    --accent-selected: #60a5fa;
+
+    --ai-purple: #8b5cf6;
+    --ai-purple-hover: #7c3aed;
+    --ai-green: #10b981;
+
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+}
+
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+}
+
+body.codemap-root {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    user-select: none;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #222f46; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #354769; }
+
+.btn {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-weight: 500;
+    font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.btn-primary { background: #1e3a8a; border-color: #2563eb; color: #eff6ff; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-secondary { background: var(--bg-panel-subtle); border-color: var(--border-color); color: var(--text-primary); }
+.btn-secondary:hover { background: var(--bg-card-hover); }
+.btn-sm { height: 26px; font-size: 11px; padding: 0 8px; }
+
+.dropdown-select {
+    background: var(--bg-panel-subtle);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 5px 8px;
+    border-radius: 6px;
+    outline: none;
+    cursor: pointer;
+}

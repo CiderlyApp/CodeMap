@@ -1,0 +1,11 @@
+{
+    "selected_dirs": [
+        "ciderly-backend",
+        "ciderly-frontend",
+        "ciderly-mobile",
+        "qa-platform"
+    ],
+    "exclude_dirs": "node_modules, .next, .git, venv, env, build, .dart_tool, __pycache__, dist, .gradle, ios, android, l10n",
+    "extensions": ".js, .jsx, .ts, .tsx, .py, .dart",
+    "exclude_files": "freezed.dart, .g.dart"
+}

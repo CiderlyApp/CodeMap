@@ -1,0 +1,169 @@
+.app-header {
+    height: 50px;
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    position: relative;
+    z-index: 100;
+}
+.header-left, .header-center, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-bright);
+}
+.brand-icon { width: 22px; height: 22px; color: var(--accent-focus); }
+
+.project-manager-widget {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+    z-index: 110;
+}
+.btn-icon-add {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: #1e293b;
+    border: 1px solid var(--border-color);
+    color: var(--accent-selected);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+}
+.btn-icon-add:hover { background: var(--accent-focus); color: #fff; }
+
+.project-select-trigger {
+    height: 32px;
+    background: #1e293b;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.project-dropdown-menu {
+    position: absolute;
+    top: 38px; left: 0;
+    width: 280px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    z-index: 120;
+}
+.dropdown-header-title {
+    padding: 8px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-panel-subtle);
+}
+.project-menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    cursor: pointer;
+}
+.project-menu-item:hover { background: var(--bg-card-hover); }
+.project-menu-item.active { background: #172554; color: var(--accent-selected); }
+
+.view-mode-selector {
+    display: flex;
+    background: #090d15;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+.view-mode-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s ease;
+}
+.view-mode-btn:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.05); }
+.view-mode-btn.active {
+    background: #1e3a8a;
+    color: #eff6ff;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.search-command-bar {
+    position: relative;
+    width: 240px;
+    display: flex;
+    align-items: center;
+}
+.search-command-bar input {
+    width: 100%;
+    height: 32px;
+    background: #090d15;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0 28px 0 32px;
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: var(--font-mono);
+    outline: none;
+}
+.search-icon { position: absolute; left: 10px; color: var(--text-muted); pointer-events: none; }
+.clear-search-btn { position: absolute; right: 8px; background: none; border: none; color: var(--text-muted); cursor: pointer; }
+.search-results-dropdown {
+    position: absolute;
+    top: 38px; left: 0; right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 120;
+}
+.search-item {
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-subtle);
+}
+.search-item:hover { background: var(--bg-card-hover); }
+
+.icon-action-btn {
+    width: 32px; height: 32px;
+    background: var(--bg-panel-subtle);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+}
+.icon-action-btn:hover { background: var(--bg-card-hover); color: var(--text-bright); }

@@ -1,6 +1,6 @@
 /**
  * @fileoverview Единый источник правды (Single Source of Truth) для CodeMap.
- * Содержит структуру глобального состояния и JSDoc-определения типов.
+ * Содержит структуру глобального состояния, параметры режимов визуализации и метрики.
  *
  * @module state
  */
@@ -8,70 +8,69 @@
 import { PROJECT_DATA as DEMO_DATA } from './data.js';
 
 /**
- * @typedef {Object} ViewTransform
- * @property {number} x - Смещение холста по горизонтали в пикселях.
- * @property {number} y - Смещение холста по вертикали в пикселях.
- * @property {number} scale - Масштаб холста (от 0.2 до 2.5).
- */
-
-/**
- * @typedef {Object} LOCThresholds
- * @property {number} large - Порог строк для предупреждения о рефакторинге.
- * @property {number} critical - Порог критического размера файла.
- */
-
-/**
- * @typedef {Object} IgnoreSettings
- * @property {string[]} excludeDirs - Массив каталогов, игнорируемых анализатором.
- * @property {string[]} excludeFiles - Массив масок файлов, исключаемых из парсинга.
- */
-
-/**
+ * @typedef {'map' | 'layered' | 'free' | 'matrix'} ViewMode
+ * @typedef {'import' | 'from_import' | 'export' | 're_export' | 'dynamic' | 'test'} EdgeType
  * @typedef {'all' | 'no-orphans' | 'only-orphans'} OrphanFilterMode
- */
-
-/**
- * @typedef {Object} AppState
- * @property {Map<string, Array<import('./data.js').CodeFileNode>>} projects - Словарь проектов [имя -> файлы].
- * @property {string} activeProjectName - Имя текущего активного проекта.
- * @property {Array<import('./data.js').CodeFileNode>} projectFiles - Файлы активного проекта.
- * @property {string|null} selectedFileId - Идентификатор выбранного файла.
- * @property {Set<string>} focusFiles - Множество файлов в текущем фокусе.
- * @property {boolean} isOverviewMode - Флаг режима полного обзора (весь проект).
- * @property {boolean} isDrawerOpen - Флаг раскрытия правой панели-инспектора.
- * @property {OrphanFilterMode} orphanFilter - Режим фильтрации несвязанных файлов.
- * @property {Set<string>} excludedContextFiles - Файлы, исключённые из бандла контекста ИИ.
- * @property {Set<string>} customContextFiles - Произвольные файлы, добавленные пользователем в контекст.
- * @property {Set<string>} collapsedFolders - Список свернутых директорий в дереве.
- * @property {LOCThresholds} thresholds - Пороговые значения строк кода.
- * @property {IgnoreSettings} ignoreSettings - Конфигурация игнорирования файлов и директорий.
- * @property {ViewTransform} viewTransform - Параметры трансформации холста.
- * @property {boolean} isDragging - Статус перетаскивания рабочей области.
- * @property {{x: number, y: number}} dragStart - Начальная точка захвата курсора.
+ * @typedef {'files' | 'modules'} MatrixLevel
  */
 
 /**
  * Глобальный реактивный объект состояния приложения.
- * @type {AppState}
  */
 export const state = {
+    // Проекты и файлы
     projects: new Map([['ciderly-demo', [...DEMO_DATA]]]),
     activeProjectName: 'ciderly-demo',
     projectFiles: [...DEMO_DATA],
 
+    // Выбор и фокус
     selectedFileId: DEMO_DATA[0]?.id || null,
     focusFiles: new Set(),
     isOverviewMode: true,
     isDrawerOpen: true,
+
+    // Текущий режим визуализации
+    currentViewMode: 'map', // 'map' | 'layered' | 'free' | 'matrix'
+
+    // Фильтр типов связей (по умолчанию включены все)
+    activeEdgeTypes: new Set(['import', 'from_import', 'export', 're_export', 'dynamic', 'test']),
+
+    // Фильтрация файлов-сирот
     orphanFilter: 'all',
+
+    // Контекст и Bundle для LLM
     excludedContextFiles: new Set(),
     customContextFiles: new Set(),
+
+    // Свернутые директории в режиме «Карта проекта»
     collapsedFolders: new Set(),
 
+    // Параметры режима «Слоевой граф»
+    layeredSettings: {
+        depth: 2,
+        direction: 'both' // 'both' | 'upstream' | 'downstream'
+    },
+
+    // Сохраненные координаты узлов для режима «Свободный граф»
+    freeLayoutPositions: new Map(),
+    freeSimulationRunning: false,
+
+    // Параметры режима «Матрица зависимостей»
+    matrixSettings: {
+        level: 'files', // 'files' | 'modules'
+        searchQuery: '',
+        sortBy: 'name', // 'name' | 'in-degree' | 'out-degree' | 'lines'
+        sortAsc: true,
+        selectedCell: null // { source: string, target: string }
+    },
+
+    // Пороги рефакторинга
     thresholds: {
         large: 500,
         critical: 1000
     },
+
+    // Правила игнорирования файлов и папок
     ignoreSettings: {
         excludeDirs: [
             'node_modules', '.git', '.next', 'dist', 'build', 'venv', '.venv', 'env',
@@ -79,6 +78,8 @@ export const state = {
         ],
         excludeFiles: ['freezed.dart', '.g.dart', '*.min.js', '*.lock']
     },
+
+    // Трансформация холста для графовых режимов
     viewTransform: {
         x: 60,
         y: 40,

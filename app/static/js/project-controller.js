@@ -1,6 +1,5 @@
 /**
- * @fileoverview Контроллер управления сессиями проектов и списком кандидатов рефакторинга.
- *
+ * @fileoverview Контроллер сессий проектов и списка кандидатов на рефакторинг.
  * @module projectController
  */
 
@@ -19,11 +18,6 @@ import { renderGraph } from './canvas-controller.js';
 import { openInspector } from './inspector-controller.js';
 import { initTree, selectFile } from './tree-controller.js';
 
-/**
- * Инициализирует менеджер проектов: выбор локальной папки и выпадающий список проектов.
- *
- * @returns {void}
- */
 export function initProjectManager() {
     const btnAddProject = document.getElementById('btn-add-project');
     const dropdownTrigger = document.getElementById('project-dropdown-trigger');
@@ -52,10 +46,9 @@ export function initProjectManager() {
                     if (!dirHandle) return;
 
                     const projectName = dirHandle.name;
-                    // Передаем актуальные настройки игнорирования из state
                     const scanned = await scanLocalDirectory(dirHandle, '', state.ignoreSettings);
                     if (scanned.length === 0) {
-                        alert('В выбранной папке не найдено исходных файлов с учётом правил игнорирования.');
+                        alert('В выбранной папке не найдено исходных файлов.');
                         return;
                     }
 
@@ -104,11 +97,6 @@ export function initProjectManager() {
     }
 }
 
-/**
- * Отрисовывает пункты меню выпадающего списка проектов.
- *
- * @returns {void}
- */
 export function renderProjectDropdownList() {
     const list = document.getElementById('project-items-list');
     if (!list) return;
@@ -141,18 +129,10 @@ export function renderProjectDropdownList() {
                 }
             };
         }
-
         list.appendChild(item);
     });
 }
 
-/**
- * Переключает активный проект, обновляя граф, инспектор и дерево файлов.
- *
- * @async
- * @param {string} projectName - Имя проекта.
- * @returns {Promise<void>}
- */
 export async function switchActiveProject(projectName) {
     if (!state.projects.has(projectName)) return;
 
@@ -178,11 +158,6 @@ export async function switchActiveProject(projectName) {
     }
 }
 
-/**
- * Пересчитывает и обновляет список кандидатов на рефакторинг в боковой панели.
- *
- * @returns {void}
- */
 export function updateCandidates() {
     const list = document.getElementById('candidates-list');
     const badge = document.getElementById('candidates-count-badge');

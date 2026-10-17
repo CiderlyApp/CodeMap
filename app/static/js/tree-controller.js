@@ -1,8 +1,5 @@
 /**
- * @fileoverview Контроллер дерева файлов проекта и управления фокусом графа.
- * Отвечает за рендеринг структуры каталогов, фильтрацию сирот, выбор файлов
- * и добавление файлов в контекст ИИ прямо из дерева.
- *
+ * @fileoverview Дерево файлов: отображение структуры каталогов, выбор узлов и фильтрация.
  * @module treeController
  */
 
@@ -10,12 +7,6 @@ import { state } from './state.js';
 import { renderGraph, centerNode } from './canvas-controller.js';
 import { openInspector, ensureDrawerOpen, toggleCustomContextFile } from './inspector-controller.js';
 
-/**
- * Отрисовывает интерактивное дерево файлов со сворачиваемыми директориями
- * и кнопками быстрого добавления в бандл.
- *
- * @returns {void}
- */
 export function initTree() {
     const container = document.getElementById('project-tree-view');
     if (!container) return;
@@ -80,10 +71,9 @@ export function initTree() {
             item.innerHTML = `
                 <span class="tree-icon">📄</span>
                 <span class="tree-label">${file.name}</span>
-                <button class="btn-tree-pin" title="Добавить / убрать файл из контекста ИИ">${isPinned ? '✓' : '📌'}</button>
+                <button class="btn-tree-pin" title="Добавить / убрать файл из бандла">${isPinned ? '✓' : '📌'}</button>
             `;
 
-            // Клик по кнопке пина в дереве
             const pinBtn = item.querySelector('.btn-tree-pin');
             if (pinBtn) {
                 pinBtn.onclick = (ev) => {
@@ -92,7 +82,6 @@ export function initTree() {
                 };
             }
 
-            // Клик на файл: фокусировка
             item.onclick = (e) => {
                 e.stopPropagation();
                 selectFile(file.id, true);
@@ -105,13 +94,6 @@ export function initTree() {
     });
 }
 
-/**
- * Переводит приложение в режим фокусировки на конкретном файле и его связях.
- *
- * @param {string} fileId - Идентификатор файла.
- * @param {boolean} [shouldCenter=false] - Центрировать ли холст на карточке файла.
- * @returns {void}
- */
 export function selectFile(fileId, shouldCenter = false) {
     state.selectedFileId = fileId;
     state.isOverviewMode = false;
@@ -130,11 +112,6 @@ export function selectFile(fileId, shouldCenter = false) {
     if (shouldCenter) centerNode(fileId);
 }
 
-/**
- * Инициализирует выпадающий селектор фильтрации файлов-сирот.
- *
- * @returns {void}
- */
 export function initOrphanFilter() {
     const select = document.getElementById('orphan-filter-select');
     if (!select) return;
@@ -147,11 +124,6 @@ export function initOrphanFilter() {
     };
 }
 
-/**
- * Обновляет плашку-индикатор активного фокуса на холсте.
- *
- * @returns {void}
- */
 export function updateContextPill() {
     const pill = document.getElementById('focus-context-pill');
     const text = document.getElementById('focus-context-text');
@@ -162,6 +134,6 @@ export function updateContextPill() {
     } else {
         const file = state.projectFiles.find(f => f.id === state.selectedFileId);
         pill.style.display = 'flex';
-        text.innerText = `Фокус: ${file ? file.name : state.selectedFileId} (только его связи)`;
+        text.innerText = `Фокус: ${file ? file.name : state.selectedFileId}`;
     }
 }

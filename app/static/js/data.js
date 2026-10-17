@@ -1,46 +1,15 @@
 /**
- * @fileoverview Доменная модель анализируемого программного проекта.
- * Содержит файлы, директории, метаданные строк кода, экспорты и типизированные связи.
- *
+ * @fileoverview Доменная модель проекта: эталонный набор демонстрационных данных.
  * @module data
  */
 
-/**
- * @typedef {'import' | 'from_import' | 'export' | 're_export' | 'test'} DependencyType
- */
-
-/**
- * @typedef {Object} FileDependency
- * @property {string} target - ID целевого файла
- * @property {DependencyType} type - Семантический тип связи
- * @property {string} statement - Строка импорта или вызова
- */
-
-/**
- * @typedef {Object} CodeFileNode
- * @property {string} id - Уникальный путь к файлу в репозитории
- * @property {string} name - Имя файла с расширением
- * @property {string} folder - Родительская директория кластера
- * @property {string} role - Архитектурное назначение (API entry, db connection и т.д.)
- * @property {number} lines - Количество строк кода (LOC)
- * @property {string} language - Язык программирования
- * @property {string[]} tags - Архитектурные метки
- * @property {string[]} exports - Символы, экспортируемые файлом
- * @property {FileDependency[]} dependencies - Исходящие зависимости
- */
-
-/**
- * Эталонная проектная структура ciderly-backend (32 файла).
- * @type {CodeFileNode[]}
- */
 export const PROJECT_DATA = [
-    // api/
     {
         id: "src/api/app.py",
         name: "app.py",
         folder: "api",
         role: "API entry point",
-        lines: 1284, // Превышает порог 500 lines -> Candidate for refactoring!
+        lines: 1284,
         language: "Python",
         tags: ["Python", "API", "Entry point"],
         exports: ["create_app()", "app", "main()"],
@@ -94,8 +63,6 @@ export const PROJECT_DATA = [
             { target: "src/services/user_service.py", type: "from_import", statement: "from services.user_service import UserService" }
         ]
     },
-
-    // core/
     {
         id: "src/core/config.py",
         name: "config.py",
@@ -112,7 +79,7 @@ export const PROJECT_DATA = [
         name: "database.py",
         folder: "core",
         role: "db, connection pool",
-        lines: 612, // Candidate for refactoring (> 500)
+        lines: 612,
         language: "Python",
         tags: ["Python", "Core", "DB"],
         exports: ["engine", "SessionLocal", "BaseModel"],
@@ -132,14 +99,12 @@ export const PROJECT_DATA = [
         exports: ["logger", "setup_logging()"],
         dependencies: []
     },
-
-    // services/
     {
         id: "src/services/cider_service.py",
         name: "cider_service.py",
         folder: "services",
         role: "business logic",
-        lines: 740, // Candidate for refactoring (> 500)
+        lines: 740,
         language: "Python",
         tags: ["Python", "Service", "Domain"],
         exports: ["CiderService"],
@@ -154,7 +119,7 @@ export const PROJECT_DATA = [
         name: "user_service.py",
         folder: "services",
         role: "user management",
-        lines: 947, // Candidate for refactoring (> 500)
+        lines: 947,
         language: "Python",
         tags: ["Python", "Service", "Auth"],
         exports: ["UserService"],
@@ -177,8 +142,6 @@ export const PROJECT_DATA = [
             { target: "src/core/logger.py", type: "import", statement: "import core.logger" }
         ]
     },
-
-    // models/
     {
         id: "src/models/cider.py",
         name: "cider.py",
@@ -206,8 +169,6 @@ export const PROJECT_DATA = [
             { target: "src/core/database.py", type: "from_import", statement: "from core.database import BaseModel" }
         ]
     },
-
-    // utils/
     {
         id: "src/utils/helpers.py",
         name: "helpers.py",
@@ -219,8 +180,6 @@ export const PROJECT_DATA = [
         exports: ["hash_password()", "generate_slug()", "format_date()"],
         dependencies: []
     },
-
-    // tests/
     {
         id: "tests/test_app.py",
         name: "test_app.py",
@@ -251,8 +210,4 @@ export const PROJECT_DATA = [
     }
 ];
 
-/**
- * Словарь для быстрого O(1) поиска по ID файла.
- * @type {Map<string, CodeFileNode>}
- */
 export const FILE_MAP = new Map(PROJECT_DATA.map(f => [f.id, f]));

@@ -1,18 +1,11 @@
 /**
- * @fileoverview Контроллер глобального поиска файлов.
- * Реализует поиск с автодополнением и мгновенный переход к файлу на графе.
- *
+ * @fileoverview Контроллер быстрого глобального поиска файлов.
  * @module searchController
  */
 
 import { state } from './state.js';
 import { selectFile } from './tree-controller.js';
 
-/**
- * Инициализирует командную строку поиска файлов по имени и относительному пути.
- *
- * @returns {void}
- */
 export function initSearch() {
     const input = document.getElementById('global-search-input');
     const dropdown = document.getElementById('search-results-dropdown');

@@ -41,7 +41,23 @@
             </div>
         </div>
 
+        <!-- Центральный переключатель 4 режимов визуализации -->
         <div class="header-center">
+            <div class="view-mode-selector" id="view-mode-selector">
+                <button class="view-mode-btn active" data-mode="map" title="Структура проекта с кластерами папок">
+                    <span>🗺️</span> Карта проекта
+                </button>
+                <button class="view-mode-btn" data-mode="layered" title="Слоевой граф: входящие и исходящие связи выбранного файла">
+                    <span>🌲</span> Слоевой граф
+                </button>
+                <button class="view-mode-btn" data-mode="free" title="Свободный силовой граф с перетаскиванием узлов">
+                    <span>🕸️</span> Свободный граф
+                </button>
+                <button class="view-mode-btn" data-mode="matrix" title="Матрица зависимостей (DSM): анализ файлов и модулей">
+                    <span>▦</span> Матрица
+                </button>
+            </div>
+
             <div class="search-command-bar">
                 <span class="search-icon">🔍</span>
                 <input type="text" id="global-search-input" placeholder="Поиск файла..." autocomplete="off" spellcheck="false">
@@ -52,14 +68,14 @@
             <!-- Фильтр сирот -->
             <div class="orphan-filter-wrapper">
                 <select id="orphan-filter-select" class="dropdown-select" title="Фильтрация файлов-сирот (без зависимостей)">
-                    <option value="all">Все файлы (вкл. сироты)</option>
-                    <option value="no-orphans">Скрыть файлы-сироты</option>
-                    <option value="only-orphans">Только файлы-сироты</option>
+                    <option value="all">Все файлы</option>
+                    <option value="no-orphans">Без сирот</option>
+                    <option value="only-orphans">Только сироты</option>
                 </select>
             </div>
 
             <button class="btn btn-secondary" id="btn-project-overview" title="Показать весь проект со связями">
-                <span>🗺️</span> Весь проект
+                <span>🌐</span> Обзор
             </button>
         </div>
 
@@ -72,7 +88,6 @@
     <main class="workspace-layout">
         <!-- 1. Левая панель: Дерево проекта + Кандидаты рефакторинга -->
         <aside class="sidebar-panel left-sidebar" id="left-sidebar">
-            <!-- Клик по заголовку отображает весь проект -->
             <div class="panel-section-header clickable-header" id="btn-explorer-title" title="Нажмите, чтобы показать весь проект со связями">
                 <span class="section-title">PROJECT EXPLORER 🌐</span>
                 <span class="meta-tag" id="project-source-tag">показать всё</span>
@@ -96,7 +111,7 @@
             </div>
         </aside>
 
-        <!-- 2. Центральный холст графа -->
+        <!-- 2. Центральная рабочая область -->
         <section class="canvas-viewport" id="canvas-viewport">
             <div class="floating-context-pill" id="focus-context-pill" style="display: none;">
                 <span class="pill-icon">📄</span>
@@ -104,17 +119,52 @@
                 <button class="pill-close" id="btn-exit-focus-pill" title="Показать весь проект">✕ Показать всё</button>
             </div>
 
+            <!-- Специфичные панели управления режимами -->
+            <div class="mode-extra-toolbar" id="layered-depth-controls" style="display: none;">
+                <span class="toolbar-label">Глубина обхода:</span>
+                <input type="range" id="layered-depth-slider" min="1" max="4" value="2" step="1">
+                <span class="depth-num-badge" id="layered-depth-value">2</span>
+            </div>
+
+            <div class="mode-extra-toolbar" id="free-layout-controls" style="display: none;">
+                <button class="btn btn-secondary btn-sm" id="btn-rerun-free-layout" title="Пересчитать физическую раскладку">
+                    🔄 Перезапустить раскладку
+                </button>
+                <span class="field-hint" style="color:#94a3b8;">Узлы можно свободно перетаскивать мышью</span>
+            </div>
+
+            <!-- Графовый мир -->
             <div class="graph-world" id="graph-world">
                 <svg class="graph-edges-layer" id="graph-edges-svg"></svg>
                 <div class="graph-nodes-layer" id="graph-nodes-container"></div>
             </div>
 
+            <!-- Контейнер матрицы зависимостей (DSM) -->
+            <div class="matrix-viewport-container" id="matrix-viewport-container" style="display: none;"></div>
+
+            <!-- Интерактивная легенда с фильтрацией типов связей -->
             <div class="graph-legend-overlay">
-                <div class="legend-entry"><span class="edge-line-sample import-type"></span> <code>import</code></div>
-                <div class="legend-entry"><span class="edge-line-sample from-import-type"></span> <code>from import</code></div>
-                <div class="legend-entry"><span class="edge-line-sample export-type"></span> <code>export</code></div>
-                <div class="legend-entry"><span class="edge-line-sample test-type"></span> <code>test / usage</code></div>
-                <div class="legend-entry"><span class="orphan-dot-sample"></span> <code>файл-сирота</code></div>
+                <div class="legend-header-title">ТИПЫ СВЯЗЕЙ (ФИЛЬТР)</div>
+                <label class="legend-entry">
+                    <input type="checkbox" class="edge-filter-checkbox" data-edge-type="import" checked>
+                    <span class="edge-line-sample import-type"></span> <code>import</code>
+                </label>
+                <label class="legend-entry">
+                    <input type="checkbox" class="edge-filter-checkbox" data-edge-type="from_import" checked>
+                    <span class="edge-line-sample from-import-type"></span> <code>from import</code>
+                </label>
+                <label class="legend-entry">
+                    <input type="checkbox" class="edge-filter-checkbox" data-edge-type="export" checked>
+                    <span class="edge-line-sample export-type"></span> <code>export</code>
+                </label>
+                <label class="legend-entry">
+                    <input type="checkbox" class="edge-filter-checkbox" data-edge-type="test" checked>
+                    <span class="edge-line-sample test-type"></span> <code>test / usage</code>
+                </label>
+                <label class="legend-entry">
+                    <input type="checkbox" class="edge-filter-checkbox" data-edge-type="dynamic" checked>
+                    <span class="edge-line-sample dynamic-type"></span> <code>dynamic (require)</code>
+                </label>
             </div>
 
             <div class="canvas-bottom-dock">
@@ -127,7 +177,7 @@
             </div>
         </section>
 
-        <!-- 3. Правая панель: Инспектор файла (Шторка с просмотром кода) -->
+        <!-- 3. Правая панель: Инспектор файла (Шторка с просмотром кода и Метриками) -->
         <aside class="sidebar-panel right-sidebar drawer-curtain" id="right-sidebar">
             <button class="drawer-toggle-handle" id="btn-toggle-drawer" title="Свернуть / развернуть панель инспектора">
                 <span class="drawer-arrow-icon" id="drawer-arrow-icon">▶</span>
@@ -146,7 +196,7 @@
 
                 <div class="inspector-tags-row" id="inspector-tags"></div>
 
- <!-- Блок экспорта в ИИ с ручным управлением контекстом -->
+                <!-- Блок экспорта в ИИ с ручным управлением контекстом -->
                 <div class="ai-copy-action-box">
                     <div class="copy-buttons-row">
                         <button class="btn btn-copy-file-only" id="btn-copy-file-only" title="Скопировать только текущий файл">
@@ -159,15 +209,19 @@
                             📌
                         </button>
                     </div>
-                    <div class="copy-subhint">Используйте 📌 в дереве или инспекторе, чтобы добавить произвольные файлы</div>
+                    <div class="copy-subhint">
+                        Суммарно строк в Bundle: <strong id="bundle-total-lines-label">0</strong> loc
+                    </div>
                 </div>
 
-                <!-- Табы: Зависимости / Просмотр кода -->
+                <!-- Табы: Зависимости / Метрики / Просмотр кода -->
                 <div class="inspector-tabs-bar">
                     <button class="tab-btn active" id="tab-btn-deps">Зависимости</button>
+                    <button class="tab-btn" id="tab-btn-metrics">Метрики</button>
                     <button class="tab-btn" id="tab-btn-code">Просмотр кода</button>
                 </div>
 
+                <!-- 1. Вкладка зависимостей -->
                 <div class="inspector-scroll-area" id="inspector-deps-view">
                     <div class="refactoring-alert-banner" id="inspector-refactor-banner" style="display: none;">
                         <div class="alert-icon">⚠️</div>
@@ -182,10 +236,19 @@
                         <div class="code-box-path" id="inspector-full-path">-</div>
                     </div>
 
-                    <!-- Секция ручного добавления файлов в контекст -->
+                    <!-- Секция полного состава транзитивного бандла -->
+                    <div class="inspector-section">
+                        <div class="section-label-row">
+                            <span class="section-label">СОСТАВ БАНДЛА (ТРАНЗИТИВНЫЙ)</span>
+                            <span class="count-tag" id="inspector-bundle-count">0</span>
+                        </div>
+                        <div class="dep-items-list" id="inspector-bundle-list"></div>
+                    </div>
+
+                    <!-- Секция файлов, добавленных вручную -->
                     <div class="inspector-section" id="inspector-custom-context-section">
                         <div class="section-label-row">
-                            <span class="section-label">ДОПОЛНИТЕЛЬНО В КОНТЕКСТЕ</span>
+                            <span class="section-label">ЗАКРЕПЛЕНО ВРУЧНУЮ (PIN)</span>
                             <div class="custom-actions-wrap">
                                 <span class="count-tag" id="inspector-custom-context-count">0</span>
                                 <button class="btn-clear-text" id="btn-clear-custom-context" title="Очистить список">Очистить</button>
@@ -209,7 +272,7 @@
                         </div>
                         <div class="dep-items-list" id="inspector-imported-by-list"></div>
                     </div>
-                </div>
+
                     <div class="inspector-section stats-summary-box">
                         <div class="section-label">СТАТИСТИКА</div>
                         <div class="stat-metric-row">
@@ -230,7 +293,10 @@
                     </div>
                 </div>
 
-                <!-- Вкладка просмотра кода -->
+                <!-- 2. Вкладка архитектурных метрик -->
+                <div class="inspector-scroll-area" id="inspector-metrics-view" style="display: none;"></div>
+
+                <!-- 3. Вкладка просмотра кода -->
                 <div class="inspector-code-view" id="inspector-code-view" style="display: none;">
                     <div class="code-viewer-header">
                         <span id="code-viewer-filename">code</span>
@@ -242,7 +308,7 @@
         </aside>
     </main>
 
-<!-- Диалог настроек анализатора и игнорируемых ресурсов -->
+    <!-- Диалог настроек анализатора и игнорируемых ресурсов -->
     <div class="modal-dialog-overlay" id="settings-modal" style="display: none;">
         <div class="modal-dialog-card modal-dialog-card-wide">
             <div class="modal-header">
@@ -250,7 +316,6 @@
                 <button class="modal-close-btn" id="btn-close-settings-modal">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Блок 1: Пороги рефакторинга -->
                 <div class="setting-group-box">
                     <div class="group-title">Пороги рефакторинга (LOC)</div>
                     <div class="form-row">
@@ -263,19 +328,15 @@
                     </div>
                 </div>
 
-                <!-- Блок 2: Новый пункт — Игнорируемые каталоги и маски файлов -->
                 <div class="setting-group-box">
                     <div class="group-title">Игнорируемые файлы и каталоги</div>
                     <div class="form-col">
                         <label for="settings-exclude-dirs">Игнорируемые каталоги (через запятую):</label>
                         <textarea id="settings-exclude-dirs" class="form-textarea" rows="2" placeholder="node_modules, .git, dist, build, venv, .venv, coverage"></textarea>
-                        <span class="field-hint">Подпапки с данными именами будут полностью пропущены при сканировании</span>
                     </div>
-
                     <div class="form-col" style="margin-top: 10px;">
                         <label for="settings-exclude-files">Маски игнорируемых файлов (через запятую):</label>
-                        <input type="text" id="settings-exclude-files" class="form-input-text" placeholder="*.g.dart, freezed.dart, *.min.js, *.lock, *.spec.ts">
-                        <span class="field-hint">Поддерживаются подстроки и маски с подстановочными знаками: <code>*</code> и <code>?</code></span>
+                        <input type="text" id="settings-exclude-files" class="form-input-text" placeholder="*.g.dart, freezed.dart, *.min.js, *.lock">
                     </div>
                 </div>
             </div>

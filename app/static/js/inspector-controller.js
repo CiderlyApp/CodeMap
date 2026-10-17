@@ -1,21 +1,13 @@
 /**
- * @fileoverview Контроллер инспектора и генератор дедуплицированного контекста для LLM.
- * Реализует транзитивный двунаправленный сбор всех входящих и обратных зависимостей всех файлов.
+ * @fileoverview Контроллер инспектора, вкладки архитектурных метрик и генератора Bundle для LLM.
  *
  * @module inspectorController
  */
 
 import { state } from './state.js';
 import { renderGraph } from './canvas-controller.js';
+import { computeGraphMetrics } from './graph-engine.js';
 
-/**
- * Рекурсивно собирает транзитивное двунаправленное замыкание (все входящие импорты
- * и все обратные зависимости) для всех начальных файлов бандла с дедупликацией.
- *
- * @param {string} rootFileId - Основной выбранный файл.
- * @param {boolean} [onlySingle=false] - Возвращать исключительно одиночный файл.
- * @returns {string[]} Массив уникальных путей файлов без дубликатов.
- */
 export function getDeduplicatedBundleFileIds(rootFileId, onlySingle = false) {
     const fileMap = new Map(state.projectFiles.map(f => [f.id, f]));
     if (!fileMap.has(rootFileId)) return [];
@@ -24,7 +16,6 @@ export function getDeduplicatedBundleFileIds(rootFileId, onlySingle = false) {
         return state.excludedContextFiles.has(rootFileId) ? [] : [rootFileId];
     }
 
-    // Построение карты обратных зависимостей для O(1) поиска
     const reverseDepsMap = new Map();
     state.projectFiles.forEach(f => {
         (f.dependencies || []).forEach(dep => {
@@ -35,7 +26,6 @@ export function getDeduplicatedBundleFileIds(rootFileId, onlySingle = false) {
         });
     });
 
-    // Начальный фронт: выбранный файл + все добавленные пользователем файлы
     const visited = new Set();
     const queue = [];
 
@@ -49,13 +39,11 @@ export function getDeduplicatedBundleFileIds(rootFileId, onlySingle = false) {
     addSeed(rootFileId);
     (state.customContextFiles || new Set()).forEach(id => addSeed(id));
 
-    // Транзитивный волновой обход (BFS) по входящим и обратным связям
     while (queue.length > 0) {
         const currId = queue.shift();
         const currFile = fileMap.get(currId);
         if (!currFile) continue;
 
-        // 1. Входящие зависимости текущего файла (кого он импортирует: currId -> target)
         (currFile.dependencies || []).forEach(dep => {
             const targetId = dep.target;
             if (fileMap.has(targetId) && !state.excludedContextFiles.has(targetId) && !visited.has(targetId)) {
@@ -64,7 +52,6 @@ export function getDeduplicatedBundleFileIds(rootFileId, onlySingle = false) {
             }
         });
 
-        // 2. Обратные зависимости текущего файла (кто его использует: source -> currId)
         const callers = reverseDepsMap.get(currId);
         if (callers) {
             callers.forEach(callerId => {
@@ -76,7 +63,6 @@ export function getDeduplicatedBundleFileIds(rootFileId, onlySingle = false) {
         }
     }
 
-    // Главный файл всегда идёт первым в списке
     const result = Array.from(visited);
     const rootIndex = result.indexOf(rootFileId);
     if (rootIndex > 0) {
@@ -87,12 +73,6 @@ export function getDeduplicatedBundleFileIds(rootFileId, onlySingle = false) {
     return result;
 }
 
-/**
- * Открывает панель инспектора и заполняет её данными о выбранном файле и бандле.
- *
- * @param {string} fileId - Идентификатор файла.
- * @returns {void}
- */
 export function openInspector(fileId) {
     const file = state.projectFiles.find(f => f.id === fileId);
     if (!file) return;
@@ -106,7 +86,7 @@ export function openInspector(fileId) {
         tagsEl.innerHTML = (file.tags || []).map(t => `<span class="badge">${t}</span>`).join('');
     }
 
-    // Баннер кандидатов рефакторинга
+    // Рефакторинг
     const banner = document.getElementById('inspector-refactor-banner');
     const desc = document.getElementById('inspector-refactor-desc');
     if (banner && desc) {
@@ -118,7 +98,7 @@ export function openInspector(fileId) {
         }
     }
 
-    // 1. Входящие зависимости (кого импортирует этот файл)
+    // Входящие импорты
     const directDeps = file.dependencies || [];
     safeSetText('inspector-imports-count', directDeps.length.toString());
     const importsList = document.getElementById('inspector-imports-list');
@@ -142,7 +122,7 @@ export function openInspector(fileId) {
         });
     }
 
-    // 2. Обратные зависимости (кто использует этот файл)
+    // Обратные зависимости
     const importedBy = state.projectFiles.filter(o => (o.dependencies || []).some(d => d.target === file.id));
     safeSetText('inspector-imported-by-count', importedBy.length.toString());
     const importedByList = document.getElementById('inspector-imported-by-list');
@@ -166,13 +146,11 @@ export function openInspector(fileId) {
         });
     }
 
-    // 3. Полный транзитивный состав бандла (все файлы)
     renderBundleCompositionList();
-
-    // 4. Список файлов, добавленных вручную
     renderCustomContextList();
+    updateMetricsView(fileId);
 
-    // 5. Статистика
+    // Статистика
     const allBundleIds = getDeduplicatedBundleFileIds(fileId, false);
     safeSetText('active-deps-count', allBundleIds.length.toString());
     safeSetText('inspector-stat-direct', directDeps.length.toString());
@@ -180,17 +158,14 @@ export function openInspector(fileId) {
     safeSetText('inspector-stat-bundle', allBundleIds.length.toString());
     safeSetText('inspector-stat-lines', file.lines.toString());
 
-    const codeView = document.getElementById('inspector-code-view');
-    if (codeView && codeView.style.display !== 'none') {
-        loadCodeToViewer();
-    }
+    // Суммарные строки бандла
+    const totalBundleLines = allBundleIds.reduce((sum, id) => {
+        const f = state.projectFiles.find(p => p.id === id);
+        return sum + (f ? f.lines : 0);
+    }, 0);
+    safeSetText('bundle-total-lines-label', totalBundleLines.toLocaleString());
 }
 
-/**
- * Отрисовывает полный список файлов, вошедших в транзитивный бандл.
- *
- * @returns {void}
- */
 export function renderBundleCompositionList() {
     const list = document.getElementById('inspector-bundle-list');
     if (!list || !state.selectedFileId) return;
@@ -227,11 +202,6 @@ export function renderBundleCompositionList() {
     });
 }
 
-/**
- * Отрисовывает блок добавленных вручную файлов в инспекторе.
- *
- * @returns {void}
- */
 export function renderCustomContextList() {
     const list = document.getElementById('inspector-custom-context-list');
     safeSetText('inspector-custom-context-count', state.customContextFiles.size.toString());
@@ -240,7 +210,6 @@ export function renderCustomContextList() {
     if (pinBtn && state.selectedFileId) {
         const isPinned = state.customContextFiles.has(state.selectedFileId);
         pinBtn.classList.toggle('active', isPinned);
-        pinBtn.title = isPinned ? 'Удалить текущий файл из бандла' : 'Добавить текущий файл в бандл';
     }
 
     if (!list) return;
@@ -271,11 +240,88 @@ export function renderCustomContextList() {
 }
 
 /**
- * Добавляет или удаляет файл из списка закреплённых в контексте.
- *
- * @param {string} fileId - Идентификатор файла.
- * @returns {void}
+ * Обновляет панель архитектурных метрик (In-degree, Out-degree, SCC, плотность).
  */
+export function updateMetricsView(fileId) {
+    const container = document.getElementById('inspector-metrics-view');
+    if (!container) return;
+
+    const metrics = computeGraphMetrics(state.projectFiles, state.activeEdgeTypes);
+    const inDeg = metrics.inDegreeMap.get(fileId) || 0;
+    const outDeg = metrics.outDegreeMap.get(fileId) || 0;
+
+    // Проверка на участие в цикле
+    const cycleComp = metrics.cycles.find(comp => comp.includes(fileId));
+    const isCyclic = Boolean(cycleComp);
+
+    // Межмодульные связи данного файла
+    const file = state.projectFiles.find(f => f.id === fileId);
+    let crossModuleOutgoing = 0;
+    if (file) {
+        const fileMap = new Map(state.projectFiles.map(f => [f.id, f]));
+        (file.dependencies || []).forEach(d => {
+            const tgt = fileMap.get(d.target);
+            if (tgt && tgt.folder !== file.folder) crossModuleOutgoing++;
+        });
+    }
+
+    container.innerHTML = `
+        <div class="metric-card-group">
+            <div class="group-title">Метрики выбранного файла</div>
+            <div class="stat-metric-row">
+                <span>In-degree (используется в файлах)</span>
+                <strong>${inDeg}</strong>
+            </div>
+            <div class="stat-metric-row">
+                <span>Out-degree (зависит от файлов)</span>
+                <strong>${outDeg}</strong>
+            </div>
+            <div class="stat-metric-row">
+                <span>Межмодульных исходящих связей</span>
+                <strong>${crossModuleOutgoing}</strong>
+            </div>
+            <div class="stat-metric-row">
+                <span>Участие в циклических зависимостях</span>
+                <strong style="color: ${isCyclic ? 'var(--warn-critical)' : '#10b981'};">
+                    ${isCyclic ? `Да (${cycleComp.length} файлов в цикле)` : 'Нет'}
+                </strong>
+            </div>
+            ${isCyclic ? `
+                <div class="cycle-members-box">
+                    <span class="field-hint">Файлы петли зависимостей:</span>
+                    <ul class="cycle-file-list">
+                        ${cycleComp.map(cId => `<li><code>${cId.split('/').pop()}</code></li>`).join('')}
+                    </ul>
+                </div>
+            ` : ''}
+        </div>
+
+        <div class="metric-card-group" style="margin-top: 14px;">
+            <div class="group-title">Общесистемные метрики проекта</div>
+            <div class="stat-metric-row">
+                <span>Всего файлов / связей</span>
+                <strong>${metrics.totalFiles} / ${metrics.totalEdges}</strong>
+            </div>
+            <div class="stat-metric-row">
+                <span>Плотность графа связей</span>
+                <strong>${(metrics.density * 100).toFixed(2)}%</strong>
+            </div>
+            <div class="stat-metric-row">
+                <span>Межмодульных связей</span>
+                <strong>${metrics.crossModuleEdgesCount}</strong>
+            </div>
+            <div class="stat-metric-row">
+                <span>Изолированных файлов (сирот)</span>
+                <strong>${metrics.isolatedFiles.length}</strong>
+            </div>
+            <div class="stat-metric-row">
+                <span>Всего архитектурных циклов (SCC)</span>
+                <strong>${metrics.cycles.length}</strong>
+            </div>
+        </div>
+    `;
+}
+
 export function toggleCustomContextFile(fileId) {
     if (!fileId) return;
 
@@ -286,58 +332,28 @@ export function toggleCustomContextFile(fileId) {
         state.excludedContextFiles.delete(fileId);
     }
 
-    if (state.selectedFileId) {
-        openInspector(state.selectedFileId);
-    }
+    if (state.selectedFileId) openInspector(state.selectedFileId);
     renderGraph();
 }
 
-/**
- * Очищает список вручную добавленных файлов.
- *
- * @returns {void}
- */
 export function clearCustomContext() {
     state.customContextFiles.clear();
-    document.querySelectorAll('.tree-file').forEach(el => {
-        el.classList.remove('pinned-to-context');
-        const pinIcon = el.querySelector('.btn-tree-pin');
-        if (pinIcon) pinIcon.innerText = '📌';
-    });
-    if (state.selectedFileId) {
-        openInspector(state.selectedFileId);
-    }
+    if (state.selectedFileId) openInspector(state.selectedFileId);
     renderGraph();
 }
 
-/**
- * Переключает статус исключения файла из бандла.
- *
- * @param {string} fileId - Идентификатор файла.
- * @returns {void}
- */
 export function toggleContextExclusion(fileId) {
     if (state.excludedContextFiles.has(fileId)) {
         state.excludedContextFiles.delete(fileId);
     } else {
         state.excludedContextFiles.add(fileId);
     }
-    if (state.selectedFileId) {
-        openInspector(state.selectedFileId);
-    }
+    if (state.selectedFileId) openInspector(state.selectedFileId);
     renderGraph();
 }
 
-/**
- * Загружает исходный код файла.
- *
- * @async
- * @param {import('./data.js').CodeFileNode} file - Объект файла.
- * @returns {Promise<string>} Исходный код.
- */
 export async function fetchFileContent(file) {
     if (file.content) return file.content;
-
     try {
         const resp = await fetch('/api/export_ai', {
             method: 'POST',
@@ -351,19 +367,11 @@ export async function fetchFileContent(file) {
             return match ? match[1].trim() : raw;
         }
     } catch (e) {
-        console.warn('Не удалось запросить код с сервера:', e);
+        console.warn('Серверный код недоступен:', e);
     }
     return `// Файл: ${file.name}\n// Путь: ${file.id}\n// Строк: ${file.lines}`;
 }
 
-/**
- * Формирует чистый текстовый бандл для передачи в LLM без тегов <file> и ## path.
- *
- * @async
- * @param {string} rootFileId - Корневой файл.
- * @param {boolean} [onlySingle=false] - Копировать только одиночный файл.
- * @returns {Promise<string>} Чистый форматированный текст.
- */
 export async function buildFormattedAIContext(rootFileId, onlySingle = false) {
     const fileMap = new Map(state.projectFiles.map(f => [f.id, f]));
     const targetIds = getDeduplicatedBundleFileIds(rootFileId, onlySingle);
@@ -395,75 +403,53 @@ export async function buildFormattedAIContext(rootFileId, onlySingle = false) {
     return output.join('\n');
 }
 
-/**
- * Подгружает текст файла во вкладку Code Viewer.
- *
- * @async
- * @returns {Promise<void>}
- */
-export async function loadCodeToViewer() {
-    const file = state.projectFiles.find(f => f.id === state.selectedFileId);
-    const contentEl = document.getElementById('code-viewer-content');
-    const headerEl = document.getElementById('code-viewer-filename');
-    if (!contentEl) return;
-
-    if (!file) {
-        contentEl.innerText = '// Файл не выбран';
-        return;
-    }
-
-    if (headerEl) headerEl.innerText = file.name;
-    contentEl.innerText = 'Загрузка содержимого...';
-    const code = await fetchFileContent(file);
-    contentEl.innerText = code || '// [Файл пуст или содержимое недоступно]';
-}
-
-/**
- * Инициализирует вкладки "Зависимости" и "Просмотр кода".
- *
- * @returns {void}
- */
 export function initCodeViewerTabs() {
     const tabDeps = document.getElementById('tab-btn-deps');
+    const tabMetrics = document.getElementById('tab-btn-metrics');
     const tabCode = document.getElementById('tab-btn-code');
+
     const viewDeps = document.getElementById('inspector-deps-view');
+    const viewMetrics = document.getElementById('inspector-metrics-view');
     const viewCode = document.getElementById('inspector-code-view');
-    const copyRawBtn = document.getElementById('btn-copy-raw-code');
 
-    if (tabDeps && tabCode) {
+    const resetTabs = () => {
+        [tabDeps, tabMetrics, tabCode].forEach(t => t && t.classList.remove('active'));
+        if (viewDeps) viewDeps.style.display = 'none';
+        if (viewMetrics) viewMetrics.style.display = 'none';
+        if (viewCode) viewCode.style.display = 'none';
+    };
+
+    if (tabDeps) {
         tabDeps.onclick = () => {
+            resetTabs();
             tabDeps.classList.add('active');
-            tabCode.classList.remove('active');
             if (viewDeps) viewDeps.style.display = 'flex';
-            if (viewCode) viewCode.style.display = 'none';
-        };
-
-        tabCode.onclick = () => {
-            tabCode.classList.add('active');
-            tabDeps.classList.remove('active');
-            if (viewDeps) viewDeps.style.display = 'none';
-            if (viewCode) viewCode.style.display = 'flex';
-            loadCodeToViewer();
         };
     }
 
-    if (copyRawBtn) {
-        copyRawBtn.onclick = async () => {
+    if (tabMetrics) {
+        tabMetrics.onclick = () => {
+            resetTabs();
+            tabMetrics.classList.add('active');
+            if (viewMetrics) viewMetrics.style.display = 'flex';
+            if (state.selectedFileId) updateMetricsView(state.selectedFileId);
+        };
+    }
+
+    if (tabCode) {
+        tabCode.onclick = async () => {
+            resetTabs();
+            tabCode.classList.add('active');
+            if (viewCode) viewCode.style.display = 'flex';
             const file = state.projectFiles.find(f => f.id === state.selectedFileId);
-            if (!file) return;
-            const content = await fetchFileContent(file);
-            await navigator.clipboard.writeText(content);
-            copyRawBtn.innerText = '✅ Скопировано!';
-            setTimeout(() => { copyRawBtn.innerText = 'Скопировать весь код'; }, 2000);
+            const contentEl = document.getElementById('code-viewer-content');
+            if (contentEl && file) {
+                contentEl.innerText = await fetchFileContent(file);
+            }
         };
     }
 }
 
-/**
- * Инициализирует кнопки копирования бандла и управления контекстом.
- *
- * @returns {void}
- */
 export function initAICopyButtons() {
     const btnOnly = document.getElementById('btn-copy-file-only');
     const btnBundle = document.getElementById('btn-copy-bundle');
@@ -501,17 +487,10 @@ export function initAICopyButtons() {
     }
 
     if (btnClear) {
-        btnClear.onclick = () => {
-            clearCustomContext();
-        };
+        btnClear.onclick = () => clearCustomContext();
     }
 }
 
-/**
- * Инициализирует боковую шторку инспектора.
- *
- * @returns {void}
- */
 export function initDrawer() {
     const drawer = document.getElementById('right-sidebar');
     const toggleBtn = document.getElementById('btn-toggle-drawer');
@@ -524,11 +503,6 @@ export function initDrawer() {
     };
 }
 
-/**
- * Гарантирует открытие боковой шторки.
- *
- * @returns {void}
- */
 export function ensureDrawerOpen() {
     const drawer = document.getElementById('right-sidebar');
     if (drawer && !state.isDrawerOpen) {
@@ -537,12 +511,6 @@ export function ensureDrawerOpen() {
     }
 }
 
-/**
- * Безопасная установка текста в элемент DOM.
- *
- * @param {string} elementId - ID элемента.
- * @param {string} text - Текст.
- */
 function safeSetText(elementId, text) {
     const el = document.getElementById(elementId);
     if (el) el.innerText = text;
